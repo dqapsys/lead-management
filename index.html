@@ -344,10 +344,9 @@
 
 <!-- ============ FIREBASE ============ -->
 <!--
-  Reuse the SAME Firebase project as DQAP Wiki if you want one unified backend,
-  or create a new project at https://console.firebase.google.com — either works.
-  If reusing the wiki project, this app simply adds new Firestore collections
-  ("leads", "teamMembers", "incentiveConfig") alongside the existing ones.
+  This is wired to the existing dqap-wiki Firebase project.
+  Collections used: "dqap_leads", "dqap_lm_team", "dqap_lm_config" —
+  named to match the dqap_ prefix convention used elsewhere in this project.
 -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -355,12 +354,12 @@
 const firebaseConfig = {
   apiKey: "AIzaSyBV2ZQwfqvgPyzLz75wsSIg9N5gjPHY-R8",
   authDomain: "dqap-wiki.firebaseapp.com",
-  databaseURL: "https://dqap-wiki-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "dqap-wiki",
   storageBucket: "dqap-wiki.firebasestorage.app",
   messagingSenderId: "932523956178",
   appId: "1:932523956178:web:cc83a8e7369eaa80649a0b"
-};firebase.initializeApp(firebaseConfig);
+};
+firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 /* ============================================================
@@ -461,7 +460,7 @@ function showView(id){
    ============================================================ */
 async function loadConfig(){
   try{
-    const doc = await db.collection('incentiveConfig').doc('main').get();
+    const doc = await db.collection('dqap_lm_config').doc('main').get();
     if(doc.exists) config = {...config, ...doc.data()};
   }catch(e){ console.warn('Using default config —', e.message); }
 }
@@ -474,13 +473,13 @@ async function saveConfig(){
   config.tier3Cap = Number(document.getElementById('cfg_cap').value);
   config.megaThreshold = Number(document.getElementById('cfg_megaThresh').value);
   config.megaBonus = Number(document.getElementById('cfg_megaBonus').value);
-  await db.collection('incentiveConfig').doc('main').set(config);
+  await db.collection('dqap_lm_config').doc('main').set(config);
   showToast('Configuration saved.');
 }
 
 async function loadTeam(){
   try{
-    const snap = await db.collection('teamMembers').get();
+    const snap = await db.collection('dqap_lm_team').get();
     teamMembers = snap.docs.map(d=>({id:d.id, ...d.data()}));
   }catch(e){ console.warn('Could not load team —', e.message); teamMembers = []; }
 }
@@ -489,7 +488,7 @@ async function addMember(){
   const name = document.getElementById('newMemberName').value.trim();
   const role = document.getElementById('newMemberRole').value;
   if(!name) return;
-  const ref = await db.collection('teamMembers').add({name, role});
+  const ref = await db.collection('dqap_lm_team').add({name, role});
   teamMembers.push({id:ref.id, name, role});
   document.getElementById('newMemberName').value='';
   renderTeamList();
@@ -498,7 +497,7 @@ async function addMember(){
 
 async function removeMember(id){
   if(!confirm('Remove this team member?')) return;
-  await db.collection('teamMembers').doc(id).delete();
+  await db.collection('dqap_lm_team').doc(id).delete();
   teamMembers = teamMembers.filter(m=>m.id!==id);
   renderTeamList();
 }
@@ -518,7 +517,7 @@ function renderTeamList(){
    FIRESTORE: LEADS
    ============================================================ */
 function listenLeads(){
-  db.collection('leads').orderBy('createdAt','desc').onSnapshot(snap=>{
+  db.collection('dqap_leads').orderBy('createdAt','desc').onSnapshot(snap=>{
     leads = snap.docs.map(d=>({id:d.id, ...d.data()}));
     if(currentUser) renderAll();
   }, err=>console.warn('Leads listener error —', err.message));
@@ -548,7 +547,7 @@ async function submitLead(){
     payoutStatus: 'Pending',
     finalValueLakh: null,
   };
-  await db.collection('leads').add(lead);
+  await db.collection('dqap_leads').add(lead);
 
   ['f_company','f_contact','f_contactInfo','f_value','f_desc'].forEach(id=>document.getElementById(id).value='');
   showToast('Lead submitted — ₹'+config.tier1+' credited. Sales will review shortly.');
@@ -557,7 +556,7 @@ async function submitLead(){
 
 async function qualifyLead(id){
   if(!confirm('Mark this lead as qualified? This adds it to the active pipeline.')) return;
-  await db.collection('leads').doc(id).update({
+  await db.collection('dqap_leads').doc(id).update({
     status:'Qualified', qualifiedBy: currentUser.name,
     qualifiedAt: firebase.firestore.FieldValue.serverTimestamp(), tier2Paid:true
   });
@@ -566,12 +565,12 @@ async function qualifyLead(id){
 
 async function notRelevant(id){
   if(!confirm('Mark this lead as not relevant?')) return;
-  await db.collection('leads').doc(id).update({status:'Not Relevant'});
+  await db.collection('dqap_leads').doc(id).update({status:'Not Relevant'});
 }
 
 async function markLost(id){
   if(!confirm('Mark this deal as lost?')) return;
-  await db.collection('leads').doc(id).update({status:'Lost'});
+  await db.collection('dqap_leads').doc(id).update({status:'Lost'});
 }
 
 let wonLeadId = null;
@@ -621,7 +620,7 @@ async function confirmWon(){
   const isSales = lead.referrerRole === 'sales';
   const result = calcPayout(valueLakh, alreadyPaid, isSales);
 
-  await db.collection('leads').doc(wonLeadId).update({
+  await db.collection('dqap_leads').doc(wonLeadId).update({
     status:'Won', finalValueLakh: valueLakh, wonAt: firebase.firestore.FieldValue.serverTimestamp(),
     tier3Paid: true, tier3Amount: result.tier3, megaBonus: result.mega,
     totalPayout: result.total, payoutStatus:'Pending'
@@ -631,7 +630,7 @@ async function confirmWon(){
 }
 
 async function markPaid(id){
-  await db.collection('leads').doc(id).update({
+  await db.collection('dqap_leads').doc(id).update({
     payoutStatus:'Paid', paidAt: firebase.firestore.FieldValue.serverTimestamp(), paidBy: currentUser.name
   });
   showToast('Marked as paid.');
