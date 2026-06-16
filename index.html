@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lead Management — DQAP Systems</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0070C0">
+<style>
+  :root{
+    --brand:#0070C0;
+    --brand-dark:#005A99;
+    --brand-light:#E8F2FB;
+    --gray-50:#F7F8FA;
+    --gray-100:#EEF0F3;
+    --gray-200:#DDE1E6;
+    --gray-400:#9AA3AD;
+    --gray-600:#5B6470;
+    --gray-800:#2A313C;
+    --green:#1A7F4E;
+    --green-light:#E6F6EE;
+    --amber:#B5790A;
+    --amber-light:#FBF1DE;
+    --red:#B3261E;
+    --red-light:#FBEAE9;
+    --radius:10px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--gray-50);color:var(--gray-800);line-height:1.5;}
+  a{color:inherit;}
+
+  /* ---------- App shell ---------- */
+  #app{display:none;min-height:100vh;}
+  #gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+
+  header.topbar{
+    background:var(--brand);color:#fff;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 20px;position:sticky;top:0;z-index:50;
+  }
+  header.topbar .brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px;}
+  header.topbar .brand .v{font-size:11px;opacity:.75;font-weight:400;}
+  header.topbar .who{display:flex;align-items:center;gap:10px;font-size:13px;}
+  header.topbar .who button{
+    background:rgba(255,255,255,.15);color:#fff;border:none;padding:6px 12px;
+    border-radius:8px;cursor:pointer;font-size:12px;
+  }
+
+  nav.tabs{
+    display:flex;gap:4px;background:#fff;border-bottom:1px solid var(--gray-200);
+    padding:0 16px;overflow-x:auto;position:sticky;top:56px;z-index:40;
+  }
+  nav.tabs button{
+    background:none;border:none;padding:13px 14px;font-size:13px;font-weight:500;
+    color:var(--gray-600);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;
+  }
+  nav.tabs button.active{color:var(--brand);border-bottom-color:var(--brand);}
+  nav.tabs button:hover{color:var(--brand-dark);}
+
+  main{max-width:1100px;margin:0 auto;padding:22px 16px 80px;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  h1{font-size:20px;font-weight:600;margin-bottom:4px;}
+  h2{font-size:15px;font-weight:600;margin-bottom:10px;}
+  .muted{color:var(--gray-600);font-size:13px;}
+  .page-head{margin-bottom:18px;}
+
+  .card{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px 18px;}
+  .grid{display:grid;gap:12px;}
+  .grid-3{grid-template-columns:repeat(3,1fr);}
+  .grid-2{grid-template-columns:repeat(2,1fr);}
+  @media(max-width:680px){.grid-3,.grid-2{grid-template-columns:1fr;}}
+
+  .stat .n{font-size:24px;font-weight:600;color:var(--brand-dark);}
+  .stat .l{font-size:12px;color:var(--gray-600);margin-top:2px;}
+
+  label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;margin-top:14px;}
+  input,select,textarea{
+    width:100%;padding:9px 11px;border:1px solid var(--gray-200);border-radius:8px;
+    font-size:14px;background:#fff;color:var(--gray-800);font-family:inherit;
+  }
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);}
+  textarea{resize:vertical;min-height:70px;}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    background:var(--brand);color:#fff;border:none;padding:10px 18px;border-radius:8px;
+    font-size:13px;font-weight:600;cursor:pointer;
+  }
+  .btn:hover{background:var(--brand-dark);}
+  .btn.secondary{background:#fff;color:var(--gray-800);border:1px solid var(--gray-200);}
+  .btn.secondary:hover{background:var(--gray-100);}
+  .btn.danger{background:var(--red);}
+  .btn.success{background:var(--green);}
+  .btn.small{padding:6px 11px;font-size:12px;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;font-size:11px;font-weight:600;color:var(--gray-600);padding:9px 10px;border-bottom:1px solid var(--gray-200);white-space:nowrap;}
+  td{padding:10px;border-bottom:1px solid var(--gray-100);vertical-align:top;}
+  tr:hover td{background:var(--gray-50);}
+  .table-wrap{overflow-x:auto;border:1px solid var(--gray-200);border-radius:var(--radius);}
+  .table-wrap table{margin:0;}
+  .table-wrap .card{border:none;}
+
+  .badge{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+  .b-submitted{background:var(--gray-100);color:var(--gray-600);}
+  .b-qualified{background:var(--brand-light);color:var(--brand-dark);}
+  .b-won{background:var(--green-light);color:var(--green);}
+  .b-lost{background:var(--red-light);color:var(--red);}
+  .b-notrelevant{background:var(--gray-100);color:var(--gray-600);}
+  .b-paid{background:var(--green-light);color:var(--green);}
+  .b-pending{background:var(--amber-light);color:var(--amber);}
+
+  .empty{text-align:center;padding:50px 20px;color:var(--gray-600);}
+  .empty .big{font-size:32px;margin-bottom:8px;}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--gray-800);color:#fff;padding:11px 20px;border-radius:8px;
+    font-size:13px;z-index:200;opacity:0;transition:opacity .25s;pointer-events:none;
+  }
+  .toast.show{opacity:1;}
+
+  .modal-bg{
+    position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;
+    align-items:center;justify-content:center;z-index:150;padding:20px;
+  }
+  .modal-bg.show{display:flex;}
+  .modal{background:#fff;border-radius:var(--radius);padding:22px;max-width:440px;width:100%;max-height:88vh;overflow-y:auto;}
+  .modal h2{margin-bottom:14px;}
+  .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}
+
+  .leader-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--gray-100);}
+  .leader-row:last-child{border-bottom:none;}
+  .leader-rank{width:26px;height:26px;border-radius:50%;background:var(--gray-100);color:var(--gray-600);
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+  .leader-rank.top{background:#FCE9C2;color:#8A5A00;}
+  .leader-name{flex:1;font-weight:600;font-size:13px;}
+  .leader-sub{font-size:11px;color:var(--gray-600);}
+  .leader-amt{font-weight:600;color:var(--green);font-size:14px;}
+
+  .payout-breakdown{font-size:12px;color:var(--gray-600);line-height:1.7;}
+  .payout-breakdown b{color:var(--gray-800);}
+
+  .filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .filter-bar button{
+    background:#fff;border:1px solid var(--gray-200);padding:6px 13px;border-radius:20px;
+    font-size:12px;cursor:pointer;color:var(--gray-600);
+  }
+  .filter-bar button.active{background:var(--brand);color:#fff;border-color:var(--brand);}
+
+  .config-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100);gap:10px;}
+  .config-row:last-child{border-bottom:none;}
+  .config-row label{margin:0;flex:1;}
+  .config-row input{width:110px;}
+
+  .team-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-100);}
+  .team-row:last-child{border-bottom:none;}
+  .team-row .name{flex:1;font-size:13px;font-weight:500;}
+
+  .id-card{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:30px;max-width:380px;width:100%;}
+  .id-card .logo{width:48px;height:48px;background:var(--brand);border-radius:10px;display:flex;
+    align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:18px;margin-bottom:16px;}
+  .id-card h1{font-size:18px;margin-bottom:4px;}
+  .id-card p{font-size:13px;color:var(--gray-600);margin-bottom:18px;}
+</style>
+</head>
+<body>
+
+<!-- ============ IDENTITY GATE ============ -->
+<div id="gate">
+  <div class="id-card">
+    <div class="logo">DQ</div>
+    <h1>Lead Management</h1>
+    <p>Select your name to continue. New here? Ask an admin to add you under Settings → Manage team.</p>
+    <label>Your name</label>
+    <select id="identitySelect"></select>
+    <button class="btn" style="width:100%;margin-top:16px;" onclick="signIn()">Continue</button>
+    <p id="gateError" style="color:var(--red);font-size:12px;margin-top:10px;display:none;"></p>
+  </div>
+</div>
+
+<!-- ============ APP SHELL ============ -->
+<div id="app">
+  <header class="topbar">
+    <div class="brand">Lead Management <span class="v">v1.0 · DQAP Systems</span></div>
+    <div class="who">
+      <span id="whoName"></span>
+      <button onclick="signOut()">Switch user</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabBar"></nav>
+
+  <main>
+
+    <!-- DASHBOARD -->
+    <div class="view" id="view-dashboard">
+      <div class="page-head">
+        <h1>Dashboard</h1>
+        <p class="muted">Company-wide lead referral activity at a glance.</p>
+      </div>
+      <div class="grid grid-3" style="margin-bottom:16px;">
+        <div class="card stat"><div class="n" id="statSubmitted">0</div><div class="l">Leads submitted</div></div>
+        <div class="card stat"><div class="n" id="statQualified">0</div><div class="l">Qualified into pipeline</div></div>
+        <div class="card stat"><div class="n" id="statWon">0</div><div class="l">Converted to orders</div></div>
+      </div>
+      <div class="grid grid-2" style="margin-bottom:16px;">
+        <div class="card stat"><div class="n" id="statPending">₹0</div><div class="l">Incentive pending payout</div></div>
+        <div class="card stat"><div class="n" id="statPaid">₹0</div><div class="l">Incentive paid out</div></div>
+      </div>
+      <div class="card">
+        <h2>Recent activity</h2>
+        <div id="recentActivity"></div>
+      </div>
+    </div>
+
+    <!-- SUBMIT LEAD -->
+    <div class="view" id="view-submit">
+      <div class="page-head">
+        <h1>Submit a lead</h1>
+        <p class="muted">Flag any opportunity you've come across — you'll be credited automatically if it moves forward.</p>
+      </div>
+      <div class="card" style="max-width:560px;">
+        <label>Company / organisation name *</label>
+        <input id="f_company" placeholder="e.g. HPCL Vizag Refinery">
+        <label>Contact person</label>
+        <input id="f_contact" placeholder="Name of the person you spoke to">
+        <label>Contact phone / email</label>
+        <input id="f_contactInfo" placeholder="Phone or email, if known">
+        <label>System / opportunity type *</label>
+        <select id="f_type">
+          <option value="FDA">Fire Detection & Alarm (FDA)</option>
+          <option value="GSS">Gas Suppression System (GSS)</option>
+          <option value="Plant Comm">Plant Communication</option>
+          <option value="IT Hardware">IT Hardware</option>
+          <option value="Other">Other / not sure</option>
+        </select>
+        <label>Rough estimated value (₹ Lakh) — leave blank if unsure</label>
+        <input id="f_value" type="number" placeholder="e.g. 25">
+        <label>What did you hear / see? *</label>
+        <textarea id="f_desc" placeholder="A few lines is enough — sales will follow up for details."></textarea>
+        <button class="btn" style="margin-top:18px;" onclick="submitLead()">Submit lead</button>
+        <p class="muted" style="margin-top:10px;">You'll receive ₹500 once this is logged. Sales will review within 48 hours.</p>
+      </div>
+    </div>
+
+    <!-- MY LEADS -->
+    <div class="view" id="view-myleads">
+      <div class="page-head">
+        <h1>My leads</h1>
+        <p class="muted">Every lead you've submitted, its status, and your incentive so far.</p>
+      </div>
+      <div id="myLeadsList"></div>
+    </div>
+
+    <!-- PIPELINE (sales + admin) -->
+    <div class="view" id="view-pipeline">
+      <div class="page-head">
+        <h1>Pipeline</h1>
+        <p class="muted">All referred leads. Triage new submissions and update deal outcomes.</p>
+      </div>
+      <div class="filter-bar" id="pipelineFilters"></div>
+      <div id="pipelineList"></div>
+    </div>
+
+    <!-- LEADERBOARD -->
+    <div class="view" id="view-leaderboard">
+      <div class="page-head">
+        <h1>Leaderboard</h1>
+        <p class="muted">Top referrers, ranked by total incentive earned.</p>
+      </div>
+      <div class="filter-bar">
+        <button class="active" data-period="quarter" onclick="setLeaderboardPeriod('quarter')">This quarter</button>
+        <button data-period="all" onclick="setLeaderboardPeriod('all')">All time</button>
+      </div>
+      <div class="card"><div id="leaderboardList"></div></div>
+    </div>
+
+    <!-- SETTINGS (admin) -->
+    <div class="view" id="view-settings">
+      <div class="page-head">
+        <h1>Settings</h1>
+        <p class="muted">Adjust incentive amounts and manage the team list.</p>
+      </div>
+      <div class="grid grid-2">
+        <div class="card">
+          <h2>Incentive configuration</h2>
+          <div class="config-row"><label>Tier 1 — lead submitted (₹)</label><input id="cfg_tier1" type="number"></div>
+          <div class="config-row"><label>Tier 2 — lead qualified (₹)</label><input id="cfg_tier2" type="number"></div>
+          <div class="config-row"><label>Tier 3 — rate of deal value (%)</label><input id="cfg_rate" type="number" step="0.05"></div>
+          <div class="config-row"><label>Tier 3 — floor (₹)</label><input id="cfg_floor" type="number"></div>
+          <div class="config-row"><label>Tier 3 — cap (₹)</label><input id="cfg_cap" type="number"></div>
+          <div class="config-row"><label>Mega bonus threshold (₹ Lakh)</label><input id="cfg_megaThresh" type="number"></div>
+          <div class="config-row"><label>Mega bonus amount (₹)</label><input id="cfg_megaBonus" type="number"></div>
+          <button class="btn" style="margin-top:14px;" onclick="saveConfig()">Save configuration</button>
+        </div>
+        <div class="card">
+          <h2>Manage team</h2>
+          <div id="teamList"></div>
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <input id="newMemberName" placeholder="Full name">
+            <select id="newMemberRole" style="width:130px;">
+              <option value="employee">Employee</option>
+              <option value="sales">Sales</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <button class="btn secondary" style="margin-top:10px;width:100%;" onclick="addMember()">Add team member</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px;">
+        <h2>Export</h2>
+        <p class="muted" style="margin-bottom:10px;">Download all leads and payout data as a CSV for payroll reconciliation.</p>
+        <button class="btn secondary" onclick="exportCSV()">Export CSV</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ============ MODALS ============ -->
+<div class="modal-bg" id="modalWon">
+  <div class="modal">
+    <h2>Mark as won</h2>
+    <label>Final order / deal value (₹ Lakh) *</label>
+    <input id="won_value" type="number" placeholder="e.g. 35">
+    <div class="payout-breakdown" id="won_breakdown" style="margin-top:14px;"></div>
+    <div class="actions">
+      <button class="btn secondary" onclick="closeModal('modalWon')">Cancel</button>
+      <button class="btn success" onclick="confirmWon()">Confirm won</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalLead">
+  <div class="modal" id="modalLeadContent"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ============ FIREBASE ============ -->
+<!--
+  Reuse the SAME Firebase project as DQAP Wiki if you want one unified backend,
+  or create a new project at https://console.firebase.google.com — either works.
+  If reusing the wiki project, this app simply adds new Firestore collections
+  ("leads", "teamMembers", "incentiveConfig") alongside the existing ones.
+-->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBV2ZQwfqvgPyzLz75wsSIg9N5gjPHY-R8",
+  authDomain: "dqap-wiki.firebaseapp.com",
+  databaseURL: "https://dqap-wiki-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dqap-wiki",
+  storageBucket: "dqap-wiki.firebasestorage.app",
+  messagingSenderId: "932523956178",
+  appId: "1:932523956178:web:cc83a8e7369eaa80649a0b"
+};firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let currentUser = null;       // { id, name, role }
+let teamMembers = [];          // [{id,name,role}]
+let leads = [];                 // all lead docs
+let config = {                  // defaults — overwritten by Firestore on load
+  tier1: 500,
+  tier2: 2500,
+  tier3Rate: 0.75,
+  tier3Floor: 5000,
+  tier3Cap: 40000,
+  megaThreshold: 75,           // in ₹ Lakh
+  megaBonus: 50000
+};
+let pipelineFilter = 'all';
+let leaderboardPeriod = 'quarter';
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+async function boot(){
+  await loadConfig();
+  await loadTeam();
+  const savedId = localStorage.getItem('lm_userId');
+  if(savedId && teamMembers.find(m=>m.id===savedId)){
+    currentUser = teamMembers.find(m=>m.id===savedId);
+    enterApp();
+  } else {
+    populateIdentitySelect();
+  }
+  listenLeads();
+}
+boot();
+
+function populateIdentitySelect(){
+  const sel = document.getElementById('identitySelect');
+  sel.innerHTML = teamMembers.map(m=>`<option value="${m.id}">${m.name}</option>`).join('')
+    || `<option disabled>No team members yet — ask an admin to seed the list</option>`;
+}
+
+function signIn(){
+  const id = document.getElementById('identitySelect').value;
+  const member = teamMembers.find(m=>m.id===id);
+  if(!member){ document.getElementById('gateError').style.display='block';
+    document.getElementById('gateError').textContent = 'Please select a valid name.'; return; }
+  currentUser = member;
+  localStorage.setItem('lm_userId', member.id);
+  enterApp();
+}
+
+function signOut(){
+  localStorage.removeItem('lm_userId');
+  currentUser = null;
+  document.getElementById('app').style.display='none';
+  document.getElementById('gate').style.display='flex';
+}
+
+function enterApp(){
+  document.getElementById('gate').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('whoName').textContent = `${currentUser.name} (${currentUser.role})`;
+  buildTabs();
+  showView('dashboard');
+  renderAll();
+}
+
+/* ============================================================
+   TABS / NAVIGATION
+   ============================================================ */
+function buildTabs(){
+  const tabs = [
+    {id:'dashboard', label:'Dashboard', roles:['employee','sales','admin']},
+    {id:'submit', label:'Submit lead', roles:['employee','sales','admin']},
+    {id:'myleads', label:'My leads', roles:['employee','sales','admin']},
+    {id:'pipeline', label:'Pipeline', roles:['sales','admin']},
+    {id:'leaderboard', label:'Leaderboard', roles:['employee','sales','admin']},
+    {id:'settings', label:'Settings', roles:['admin']},
+  ];
+  const bar = document.getElementById('tabBar');
+  bar.innerHTML = tabs.filter(t=>t.roles.includes(currentUser.role))
+    .map(t=>`<button data-tab="${t.id}" onclick="showView('${t.id}')">${t.label}</button>`).join('');
+}
+
+function showView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+  const btn = document.querySelector(`nav.tabs button[data-tab="${id}"]`);
+  if(btn) btn.classList.add('active');
+  renderAll();
+}
+
+/* ============================================================
+   FIRESTORE: CONFIG & TEAM
+   ============================================================ */
+async function loadConfig(){
+  try{
+    const doc = await db.collection('incentiveConfig').doc('main').get();
+    if(doc.exists) config = {...config, ...doc.data()};
+  }catch(e){ console.warn('Using default config —', e.message); }
+}
+
+async function saveConfig(){
+  config.tier1 = Number(document.getElementById('cfg_tier1').value);
+  config.tier2 = Number(document.getElementById('cfg_tier2').value);
+  config.tier3Rate = Number(document.getElementById('cfg_rate').value);
+  config.tier3Floor = Number(document.getElementById('cfg_floor').value);
+  config.tier3Cap = Number(document.getElementById('cfg_cap').value);
+  config.megaThreshold = Number(document.getElementById('cfg_megaThresh').value);
+  config.megaBonus = Number(document.getElementById('cfg_megaBonus').value);
+  await db.collection('incentiveConfig').doc('main').set(config);
+  showToast('Configuration saved.');
+}
+
+async function loadTeam(){
+  try{
+    const snap = await db.collection('teamMembers').get();
+    teamMembers = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  }catch(e){ console.warn('Could not load team —', e.message); teamMembers = []; }
+}
+
+async function addMember(){
+  const name = document.getElementById('newMemberName').value.trim();
+  const role = document.getElementById('newMemberRole').value;
+  if(!name) return;
+  const ref = await db.collection('teamMembers').add({name, role});
+  teamMembers.push({id:ref.id, name, role});
+  document.getElementById('newMemberName').value='';
+  renderTeamList();
+  showToast(`${name} added.`);
+}
+
+async function removeMember(id){
+  if(!confirm('Remove this team member?')) return;
+  await db.collection('teamMembers').doc(id).delete();
+  teamMembers = teamMembers.filter(m=>m.id!==id);
+  renderTeamList();
+}
+
+function renderTeamList(){
+  const el = document.getElementById('teamList');
+  if(!el) return;
+  el.innerHTML = teamMembers.map(m=>`
+    <div class="team-row">
+      <span class="name">${m.name}</span>
+      <span class="badge b-qualified">${m.role}</span>
+      <button class="btn secondary small" onclick="removeMember('${m.id}')">Remove</button>
+    </div>`).join('') || `<p class="muted">No team members yet.</p>`;
+}
+
+/* ============================================================
+   FIRESTORE: LEADS
+   ============================================================ */
+function listenLeads(){
+  db.collection('leads').orderBy('createdAt','desc').onSnapshot(snap=>{
+    leads = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    if(currentUser) renderAll();
+  }, err=>console.warn('Leads listener error —', err.message));
+}
+
+async function submitLead(){
+  const company = document.getElementById('f_company').value.trim();
+  const type = document.getElementById('f_type').value;
+  const desc = document.getElementById('f_desc').value.trim();
+  if(!company || !desc){ showToast('Company name and description are required.'); return; }
+
+  const lead = {
+    company,
+    contact: document.getElementById('f_contact').value.trim(),
+    contactInfo: document.getElementById('f_contactInfo').value.trim(),
+    type,
+    estValueLakh: Number(document.getElementById('f_value').value) || null,
+    description: desc,
+    referrerId: currentUser.id,
+    referrerName: currentUser.name,
+    referrerRole: currentUser.role,
+    status: 'Submitted',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    tier1Paid: true,
+    tier2Paid: false,
+    tier3Paid: false,
+    payoutStatus: 'Pending',
+    finalValueLakh: null,
+  };
+  await db.collection('leads').add(lead);
+
+  ['f_company','f_contact','f_contactInfo','f_value','f_desc'].forEach(id=>document.getElementById(id).value='');
+  showToast('Lead submitted — ₹'+config.tier1+' credited. Sales will review shortly.');
+  showView('myleads');
+}
+
+async function qualifyLead(id){
+  if(!confirm('Mark this lead as qualified? This adds it to the active pipeline.')) return;
+  await db.collection('leads').doc(id).update({
+    status:'Qualified', qualifiedBy: currentUser.name,
+    qualifiedAt: firebase.firestore.FieldValue.serverTimestamp(), tier2Paid:true
+  });
+  showToast('Lead qualified.');
+}
+
+async function notRelevant(id){
+  if(!confirm('Mark this lead as not relevant?')) return;
+  await db.collection('leads').doc(id).update({status:'Not Relevant'});
+}
+
+async function markLost(id){
+  if(!confirm('Mark this deal as lost?')) return;
+  await db.collection('leads').doc(id).update({status:'Lost'});
+}
+
+let wonLeadId = null;
+function openWonModal(id){
+  wonLeadId = id;
+  document.getElementById('won_value').value='';
+  document.getElementById('won_breakdown').innerHTML='';
+  document.getElementById('modalWon').classList.add('show');
+}
+document.getElementById('won_value').addEventListener('input', updateWonBreakdown);
+
+function calcPayout(valueLakh, alreadyPaid, isSales){
+  if(isSales){
+    return {tier3:0, mega:0, total: alreadyPaid, breakdown:'Sales-role referrer — Tier 1 only, no Tier 2/3.'};
+  }
+  const valueRupees = valueLakh * 100000;
+  let tier3Target = (config.tier3Rate/100) * valueRupees;
+  tier3Target = Math.max(config.tier3Floor, Math.min(config.tier3Cap, tier3Target));
+  const additional = Math.max(tier3Target - alreadyPaid, 0);
+  const mega = valueLakh >= config.megaThreshold ? config.megaBonus : 0;
+  const total = alreadyPaid + additional + mega;
+  return {
+    tier3: additional, mega, total,
+    breakdown: `Already paid (Tier 1+2): ₹${alreadyPaid.toLocaleString('en-IN')}<br>
+      Tier 3 target (0.75% of value, floor/cap applied): ₹${tier3Target.toLocaleString('en-IN')}<br>
+      Additional due now: ₹${additional.toLocaleString('en-IN')}
+      ${mega ? `<br>Mega bonus (deal ≥ ₹${config.megaThreshold}L): +₹${mega.toLocaleString('en-IN')}` : ''}
+      <br><b>Total incentive: ₹${total.toLocaleString('en-IN')}</b>`
+  };
+}
+
+function updateWonBreakdown(){
+  const lead = leads.find(l=>l.id===wonLeadId);
+  if(!lead) return;
+  const valueLakh = Number(document.getElementById('won_value').value) || 0;
+  const alreadyPaid = (lead.tier1Paid?config.tier1:0) + (lead.tier2Paid?config.tier2:0);
+  const isSales = lead.referrerRole === 'sales';
+  const result = calcPayout(valueLakh, alreadyPaid, isSales);
+  document.getElementById('won_breakdown').innerHTML = `<div class="payout-breakdown">${result.breakdown}</div>`;
+}
+
+async function confirmWon(){
+  const valueLakh = Number(document.getElementById('won_value').value);
+  if(!valueLakh){ showToast('Enter a deal value.'); return; }
+  const lead = leads.find(l=>l.id===wonLeadId);
+  const alreadyPaid = (lead.tier1Paid?config.tier1:0) + (lead.tier2Paid?config.tier2:0);
+  const isSales = lead.referrerRole === 'sales';
+  const result = calcPayout(valueLakh, alreadyPaid, isSales);
+
+  await db.collection('leads').doc(wonLeadId).update({
+    status:'Won', finalValueLakh: valueLakh, wonAt: firebase.firestore.FieldValue.serverTimestamp(),
+    tier3Paid: true, tier3Amount: result.tier3, megaBonus: result.mega,
+    totalPayout: result.total, payoutStatus:'Pending'
+  });
+  closeModal('modalWon');
+  showToast('Deal marked as won. Incentive calculated.');
+}
+
+async function markPaid(id){
+  await db.collection('leads').doc(id).update({
+    payoutStatus:'Paid', paidAt: firebase.firestore.FieldValue.serverTimestamp(), paidBy: currentUser.name
+  });
+  showToast('Marked as paid.');
+}
+
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+
+/* ============================================================
+   RENDER: DASHBOARD
+   ============================================================ */
+function renderDashboard(){
+  document.getElementById('statSubmitted').textContent = leads.length;
+  document.getElementById('statQualified').textContent = leads.filter(l=>['Qualified','Won','Lost'].includes(l.status)).length;
+  document.getElementById('statWon').textContent = leads.filter(l=>l.status==='Won').length;
+
+  const pending = leads.filter(l=>l.payoutStatus==='Pending').reduce((s,l)=>s + leadPayoutSoFar(l), 0);
+  const paid = leads.filter(l=>l.payoutStatus==='Paid').reduce((s,l)=>s + leadPayoutSoFar(l), 0);
+  document.getElementById('statPending').textContent = '₹'+pending.toLocaleString('en-IN');
+  document.getElementById('statPaid').textContent = '₹'+paid.toLocaleString('en-IN');
+
+  const recent = leads.slice(0,8);
+  document.getElementById('recentActivity').innerHTML = recent.length ? recent.map(l=>`
+    <div class="team-row">
+      <span class="name">${l.company} <span class="muted">— ${l.referrerName}</span></span>
+      <span class="badge ${badgeClass(l.status)}">${l.status}</span>
+    </div>`).join('') : `<p class="muted">No leads yet — be the first to submit one.</p>`;
+}
+
+function leadPayoutSoFar(l){
+  let amt = 0;
+  if(l.tier1Paid) amt += config.tier1;
+  if(l.tier2Paid) amt += config.tier2;
+  if(l.tier3Paid) amt += (l.tier3Amount||0) + (l.megaBonus||0);
+  return amt;
+}
+
+function badgeClass(status){
+  return {
+    'Submitted':'b-submitted','Qualified':'b-qualified','Won':'b-won',
+    'Lost':'b-lost','Not Relevant':'b-notrelevant'
+  }[status] || 'b-submitted';
+}
+
+/* ============================================================
+   RENDER: MY LEADS
+   ============================================================ */
+function renderMyLeads(){
+  const mine = leads.filter(l=>l.referrerId===currentUser.id);
+  const el = document.getElementById('myLeadsList');
+  if(!mine.length){
+    el.innerHTML = `<div class="card empty"><div class="big">—</div>You haven't submitted any leads yet.<br>
+      <button class="btn" style="margin-top:14px;" onclick="showView('submit')">Submit your first lead</button></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="table-wrap"><div class="card"><table>
+    <tr><th>Company</th><th>Type</th><th>Status</th><th>Est. value</th><th>Incentive so far</th><th>Payout status</th></tr>
+    ${mine.map(l=>`
+      <tr>
+        <td>${l.company}</td>
+        <td>${l.type}</td>
+        <td><span class="badge ${badgeClass(l.status)}">${l.status}</span></td>
+        <td>${l.finalValueLakh ? '₹'+l.finalValueLakh+'L (final)' : (l.estValueLakh ? '₹'+l.estValueLakh+'L (est.)' : '—')}</td>
+        <td>₹${leadPayoutSoFar(l).toLocaleString('en-IN')}</td>
+        <td><span class="badge ${l.payoutStatus==='Paid'?'b-paid':'b-pending'}">${l.payoutStatus}</span></td>
+      </tr>`).join('')}
+  </table></div></div>`;
+}
+
+/* ============================================================
+   RENDER: PIPELINE (sales + admin)
+   ============================================================ */
+function renderPipeline(){
+  if(!['sales','admin'].includes(currentUser.role)) return;
+  const filters = ['all','Submitted','Qualified','Won','Lost','Not Relevant'];
+  document.getElementById('pipelineFilters').innerHTML = filters.map(f=>
+    `<button class="${pipelineFilter===f?'active':''}" onclick="setPipelineFilter('${f}')">${f==='all'?'All':f}</button>`
+  ).join('');
+
+  const filtered = pipelineFilter==='all' ? leads : leads.filter(l=>l.status===pipelineFilter);
+  const el = document.getElementById('pipelineList');
+  if(!filtered.length){ el.innerHTML = `<div class="card empty">No leads in this view.</div>`; return; }
+
+  el.innerHTML = `<div class="table-wrap"><div class="card"><table>
+    <tr><th>Company</th><th>Referrer</th><th>Type</th><th>Value</th><th>Status</th><th>Payout</th><th>Actions</th></tr>
+    ${filtered.map(l=>`
+      <tr>
+        <td><b>${l.company}</b><br><span class="muted">${l.description.slice(0,60)}${l.description.length>60?'…':''}</span></td>
+        <td>${l.referrerName}${l.referrerRole==='sales'?' <span class="muted">(sales)</span>':''}</td>
+        <td>${l.type}</td>
+        <td>${l.finalValueLakh ? '₹'+l.finalValueLakh+'L' : (l.estValueLakh ? '~₹'+l.estValueLakh+'L' : '—')}</td>
+        <td><span class="badge ${badgeClass(l.status)}">${l.status}</span></td>
+        <td>₹${leadPayoutSoFar(l).toLocaleString('en-IN')}
+          ${l.status==='Won' ? `<br><span class="badge ${l.payoutStatus==='Paid'?'b-paid':'b-pending'}">${l.payoutStatus}</span>` : ''}
+        </td>
+        <td>${pipelineActions(l)}</td>
+      </tr>`).join('')}
+  </table></div></div>`;
+}
+
+function pipelineActions(l){
+  if(l.status==='Submitted'){
+    return `<button class="btn small" onclick="qualifyLead('${l.id}')">Qualify</button>
+      <button class="btn secondary small" onclick="notRelevant('${l.id}')">Not relevant</button>`;
+  }
+  if(l.status==='Qualified'){
+    return `<button class="btn success small" onclick="openWonModal('${l.id}')">Mark won</button>
+      <button class="btn secondary small" onclick="markLost('${l.id}')">Mark lost</button>`;
+  }
+  if(l.status==='Won' && l.payoutStatus==='Pending' && currentUser.role==='admin'){
+    return `<button class="btn secondary small" onclick="markPaid('${l.id}')">Mark paid</button>`;
+  }
+  return `<span class="muted">—</span>`;
+}
+
+function setPipelineFilter(f){ pipelineFilter=f; renderPipeline(); }
+
+/* ============================================================
+   RENDER: LEADERBOARD
+   ============================================================ */
+function setLeaderboardPeriod(p){
+  leaderboardPeriod = p;
+  document.querySelectorAll('#view-leaderboard .filter-bar button').forEach(b=>
+    b.classList.toggle('active', b.dataset.period===p));
+  renderLeaderboard();
+}
+
+function renderLeaderboard(){
+  const now = new Date();
+  const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth()/3)*3, 1);
+
+  const relevant = leaderboardPeriod==='quarter'
+    ? leads.filter(l=> l.createdAt && l.createdAt.toDate && l.createdAt.toDate() >= qStart)
+    : leads;
+
+  const byPerson = {};
+  relevant.forEach(l=>{
+    if(!byPerson[l.referrerId]) byPerson[l.referrerId] = {name:l.referrerName, total:0, count:0};
+    byPerson[l.referrerId].total += leadPayoutSoFar(l);
+    byPerson[l.referrerId].count += 1;
+  });
+  const ranked = Object.values(byPerson).sort((a,b)=>b.total-a.total);
+
+  const el = document.getElementById('leaderboardList');
+  el.innerHTML = ranked.length ? ranked.map((p,i)=>`
+    <div class="leader-row">
+      <div class="leader-rank ${i<3?'top':''}">${i+1}</div>
+      <div style="flex:1;">
+        <div class="leader-name">${p.name}</div>
+        <div class="leader-sub">${p.count} lead${p.count!==1?'s':''} referred</div>
+      </div>
+      <div class="leader-amt">₹${p.total.toLocaleString('en-IN')}</div>
+    </div>`).join('') : `<p class="muted">No referrals in this period yet.</p>`;
+}
+
+/* ============================================================
+   RENDER: SETTINGS
+   ============================================================ */
+function renderSettings(){
+  if(currentUser.role!=='admin') return;
+  document.getElementById('cfg_tier1').value = config.tier1;
+  document.getElementById('cfg_tier2').value = config.tier2;
+  document.getElementById('cfg_rate').value = config.tier3Rate;
+  document.getElementById('cfg_floor').value = config.tier3Floor;
+  document.getElementById('cfg_cap').value = config.tier3Cap;
+  document.getElementById('cfg_megaThresh').value = config.megaThreshold;
+  document.getElementById('cfg_megaBonus').value = config.megaBonus;
+  renderTeamList();
+}
+
+/* ============================================================
+   EXPORT CSV
+   ============================================================ */
+function exportCSV(){
+  const headers = ['Company','Referrer','Role','Type','Status','Est Value (L)','Final Value (L)','Tier1','Tier2','Tier3+Mega','Total Payout','Payout Status'];
+  const rows = leads.map(l=>[
+    l.company, l.referrerName, l.referrerRole, l.type, l.status,
+    l.estValueLakh||'', l.finalValueLakh||'',
+    l.tier1Paid?config.tier1:0, l.tier2Paid?config.tier2:0,
+    l.tier3Paid?((l.tier3Amount||0)+(l.megaBonus||0)):0,
+    leadPayoutSoFar(l), l.payoutStatus
+  ]);
+  const csv = [headers, ...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `lead-management-export-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+/* ============================================================
+   RENDER ALL (called on every view switch + data update)
+   ============================================================ */
+function renderAll(){
+  if(!currentUser) return;
+  renderDashboard();
+  renderMyLeads();
+  renderPipeline();
+  renderLeaderboard();
+  renderSettings();
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3200);
+}
+</script>
+</body>
+</html>
