@@ -129,7 +129,7 @@
     align-items:center;justify-content:center;z-index:150;padding:20px;
   }
   .modal-bg.show{display:flex;}
-  .modal{background:#fff;border-radius:var(--radius);padding:22px;max-width:650px;width:100%;max-height:88vh;overflow-y:auto;}
+  .modal{background:#fff;border-radius:var(--radius);padding:22px;max-width:440px;width:100%;max-height:88vh;overflow-y:auto;}
   .modal h2{margin-bottom:14px;}
   .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}
 
@@ -211,6 +211,11 @@
       <div class="grid grid-2" style="margin-bottom:16px;">
         <div class="card stat"><div class="n" id="statPending">₹0</div><div class="l">Incentive pending payout</div></div>
         <div class="card stat"><div class="n" id="statPaid">₹0</div><div class="l">Incentive paid out</div></div>
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <h2>Project margin bonus — by sales owner</h2>
+        <p class="muted" style="margin-bottom:10px;">Separate from referral incentives above — paid to whoever owns and closes a Project-tagged deal.</p>
+        <div id="marginBonusByOwner"></div>
       </div>
       <div class="card">
         <h2>Recent activity</h2>
@@ -312,6 +317,31 @@
           <button class="btn secondary" style="margin-top:10px;width:100%;" onclick="addMember()">Add team member</button>
         </div>
       </div>
+
+      <div class="card" style="margin-top:14px;">
+        <h2>Project margin bonus configuration</h2>
+        <p class="muted" style="margin-bottom:6px;">Applies only to leads tagged as a Project. Paid to the assigned Sales Owner, separately from the referral incentive above. Rate scales with achieved gross margin %.</p>
+        <div class="grid grid-2" style="margin-top:8px;">
+          <div>
+            <div class="config-row"><label>Floor margin % (below = no bonus, needs approval)</label><input id="mb_floorPct" type="number" step="0.5"></div>
+            <div class="config-row"><label>Target band starts at (%)</label><input id="mb_targetPct" type="number" step="0.5"></div>
+            <div class="config-row"><label>Strong band starts at (%)</label><input id="mb_strongPct" type="number" step="0.5"></div>
+            <div class="config-row"><label>Excellent band starts at (%)</label><input id="mb_excellentPct" type="number" step="0.5"></div>
+          </div>
+          <div>
+            <div class="config-row"><label>Rate below target (% of GP)</label><input id="mb_rateBelowTarget" type="number" step="0.25"></div>
+            <div class="config-row"><label>Rate at target (% of GP)</label><input id="mb_rateTarget" type="number" step="0.25"></div>
+            <div class="config-row"><label>Rate at strong (% of GP)</label><input id="mb_rateStrong" type="number" step="0.25"></div>
+            <div class="config-row"><label>Rate at excellent (% of GP)</label><input id="mb_rateExcellent" type="number" step="0.25"></div>
+          </div>
+        </div>
+        <div class="config-row"><label>Per-project cap (₹)</label><input id="mb_perProjectCap" type="number"></div>
+        <div class="config-row"><label>Paid at PO stage (%) — remainder paid at completion</label><input id="mb_stage1Weight" type="number"></div>
+        <div class="config-row"><label>Annual pool guideline (% of annual project GP, informational)</label><input id="mb_annualPoolCapPct" type="number" step="0.25"></div>
+        <button class="btn" style="margin-top:14px;" onclick="saveConfig()">Save configuration</button>
+        <div id="marginPoolStatus" class="card-sm" style="margin-top:14px;"></div>
+      </div>
+
       <div class="card" style="margin-top:14px;">
         <h2>Export</h2>
         <p class="muted" style="margin-bottom:10px;">Download all leads and payout data as a CSV for payroll reconciliation.</p>
@@ -323,15 +353,53 @@
 </div>
 
 <!-- ============ MODALS ============ -->
+<div class="modal-bg" id="modalQualify">
+  <div class="modal">
+    <h2>Qualify lead</h2>
+    <p class="muted" style="margin-bottom:6px;">Tag this as a Project if it's a milestone-billed / EPC-style deal that should carry a margin bonus for whoever closes it.</p>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+      <input type="checkbox" id="qual_isProject" style="width:auto;" onchange="toggleQualifyProjectFields()">
+      <span style="font-size:13px;font-weight:500;">This is a Project (margin bonus applies)</span>
+    </label>
+    <div id="qual_projectFields" style="display:none;">
+      <label>Sales owner — who closes this deal? *</label>
+      <select id="qual_salesOwner"></select>
+    </div>
+    <div class="actions">
+      <button class="btn secondary" onclick="closeModal('modalQualify')">Cancel</button>
+      <button class="btn" onclick="confirmQualify()">Confirm qualify</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modalWon">
   <div class="modal">
     <h2>Mark as won</h2>
     <label>Final order / deal value (₹ Lakh) *</label>
     <input id="won_value" type="number" placeholder="e.g. 35">
+    <div id="won_projectFields" style="display:none;">
+      <label>Quoted gross margin % (at PO stage) *</label>
+      <input id="won_marginPct" type="number" step="0.5" placeholder="e.g. 15">
+      <div class="payout-breakdown" id="won_marginBreakdown" style="margin-top:10px;"></div>
+    </div>
     <div class="payout-breakdown" id="won_breakdown" style="margin-top:14px;"></div>
     <div class="actions">
       <button class="btn secondary" onclick="closeModal('modalWon')">Cancel</button>
       <button class="btn success" onclick="confirmWon()">Confirm won</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalComplete">
+  <div class="modal">
+    <h2>Complete project — true up margin</h2>
+    <p class="muted" style="margin-bottom:6px;">Enter the margin actually achieved at project completion. Stage 2 of the margin bonus is calculated from this.</p>
+    <label>Actual achieved gross margin % *</label>
+    <input id="complete_marginPct" type="number" step="0.5" placeholder="e.g. 13.5">
+    <div class="payout-breakdown" id="complete_breakdown" style="margin-top:14px;"></div>
+    <div class="actions">
+      <button class="btn secondary" onclick="closeModal('modalComplete')">Cancel</button>
+      <button class="btn success" onclick="confirmComplete()">Confirm completion</button>
     </div>
   </div>
 </div>
@@ -375,10 +443,24 @@ let config = {                  // defaults — overwritten by Firestore on load
   tier3Floor: 5000,
   tier3Cap: 40000,
   megaThreshold: 75,           // in ₹ Lakh
-  megaBonus: 50000
+  megaBonus: 50000,
+  // Project margin bonus — separate from referral incentive above
+  mb_floorPct: 12,             // below this: no bonus, escalation needed
+  mb_targetPct: 15,
+  mb_strongPct: 18,
+  mb_excellentPct: 21,
+  mb_rateBelowTarget: 2,       // % of GP, floor..target band
+  mb_rateTarget: 3,            // target..strong band
+  mb_rateStrong: 4.5,          // strong..excellent band
+  mb_rateExcellent: 6,         // excellent and above
+  mb_perProjectCap: 150000,    // ₹ cap per project, both stages combined
+  mb_stage1Weight: 50,         // % of bonus paid at PO stage, remainder at completion
+  mb_annualPoolCapPct: 2       // informational guideline only, % of annual project GP
 };
 let pipelineFilter = 'all';
 let leaderboardPeriod = 'quarter';
+let qualifyLeadId = null;
+let completeLeadId = null;
 
 /* ============================================================
    BOOT
@@ -473,8 +555,20 @@ async function saveConfig(){
   config.tier3Cap = Number(document.getElementById('cfg_cap').value);
   config.megaThreshold = Number(document.getElementById('cfg_megaThresh').value);
   config.megaBonus = Number(document.getElementById('cfg_megaBonus').value);
+  config.mb_floorPct = Number(document.getElementById('mb_floorPct').value);
+  config.mb_targetPct = Number(document.getElementById('mb_targetPct').value);
+  config.mb_strongPct = Number(document.getElementById('mb_strongPct').value);
+  config.mb_excellentPct = Number(document.getElementById('mb_excellentPct').value);
+  config.mb_rateBelowTarget = Number(document.getElementById('mb_rateBelowTarget').value);
+  config.mb_rateTarget = Number(document.getElementById('mb_rateTarget').value);
+  config.mb_rateStrong = Number(document.getElementById('mb_rateStrong').value);
+  config.mb_rateExcellent = Number(document.getElementById('mb_rateExcellent').value);
+  config.mb_perProjectCap = Number(document.getElementById('mb_perProjectCap').value);
+  config.mb_stage1Weight = Number(document.getElementById('mb_stage1Weight').value);
+  config.mb_annualPoolCapPct = Number(document.getElementById('mb_annualPoolCapPct').value);
   await db.collection('dqap_lm_config').doc('main').set(config);
   showToast('Configuration saved.');
+  renderAll();
 }
 
 async function loadTeam(){
@@ -546,6 +640,9 @@ async function submitLead(){
     tier3Paid: false,
     payoutStatus: 'Pending',
     finalValueLakh: null,
+    isProject: false,
+    salesOwner: null,
+    projectStage: null,
   };
   await db.collection('dqap_leads').add(lead);
 
@@ -554,136 +651,59 @@ async function submitLead(){
   showView('myleads');
 }
 
-async function qualifyLead(id){
-  await db.collection('dqap_leads').doc(id).update({
+function openQualifyModal(id){
+  qualifyLeadId = id;
+  document.getElementById('qual_isProject').checked = false;
+  document.getElementById('qual_projectFields').style.display = 'none';
+  const salesMembers = teamMembers.filter(m=>m.role==='sales');
+  document.getElementById('qual_salesOwner').innerHTML = salesMembers.length
+    ? salesMembers.map(m=>`<option value="${m.name}">${m.name}</option>`).join('')
+    : `<option value="">No sales-role team members found</option>`;
+  document.getElementById('modalQualify').classList.add('show');
+}
+
+function toggleQualifyProjectFields(){
+  const checked = document.getElementById('qual_isProject').checked;
+  document.getElementById('qual_projectFields').style.display = checked ? 'block' : 'none';
+}
+
+async function confirmQualify(){
+  const isProject = document.getElementById('qual_isProject').checked;
+  const salesOwner = isProject ? document.getElementById('qual_salesOwner').value : null;
+  if(isProject && !salesOwner){ showToast('Select a sales owner for this project.'); return; }
+
+  await db.collection('dqap_leads').doc(qualifyLeadId).update({
     status:'Qualified', qualifiedBy: currentUser.name,
-    qualifiedAt: firebase.firestore.FieldValue.serverTimestamp(), tier2Paid:true
+    qualifiedAt: firebase.firestore.FieldValue.serverTimestamp(), tier2Paid:true,
+    isProject, salesOwner, projectStage: isProject ? 'PO Pending' : null
   });
-  showToast('Lead qualified.');
+  closeModal('modalQualify');
+  showToast('Lead qualified.' + (isProject ? ' Tagged as Project — margin bonus will apply.' : ''));
 }
 
 async function notRelevant(id){
+  if(!confirm('Mark this lead as not relevant?')) return;
   await db.collection('dqap_leads').doc(id).update({status:'Not Relevant'});
-  showToast('Lead marked as not relevant.');
 }
 
 async function markLost(id){
+  if(!confirm('Mark this deal as lost?')) return;
   await db.collection('dqap_leads').doc(id).update({status:'Lost'});
-  showToast('Deal marked as lost.');
 }
 
 let wonLeadId = null;
 function openWonModal(id){
   wonLeadId = id;
+  const lead = leads.find(l=>l.id===id);
   document.getElementById('won_value').value='';
+  document.getElementById('won_marginPct').value='';
   document.getElementById('won_breakdown').innerHTML='';
+  document.getElementById('won_marginBreakdown').innerHTML='';
+  document.getElementById('won_projectFields').style.display = lead && lead.isProject ? 'block' : 'none';
   document.getElementById('modalWon').classList.add('show');
 }
-
-// Show lead details in modal before taking action
-function showLeadDetails(id, action) {
-  const lead = leads.find(l => l.id === id);
-  if (!lead) return;
-  
-  const actionLabel = action === 'qualify' ? 'Qualify' : 
-                      action === 'notrelevant' ? 'Mark Not Relevant' : 
-                      action === 'lost' ? 'Mark Lost' : 'View Details';
-  
-  const contactInfo = lead.contactInfo ? `📧 ${lead.contactInfo}` : '(No contact info)';
-  const description = lead.description ? lead.description.replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'No description';
-  const finalValue = lead.finalValueLakh ? `₹${lead.finalValueLakh}L` : 
-                     lead.estValueLakh ? `~₹${lead.estValueLakh}L (est.)` : 'Not specified';
-  
-  // Build action buttons based on status and action type
-  let actionButtons = '';
-  if (action === 'qualify') {
-    actionButtons = `<button class="btn secondary" onclick="closeModal('modalLead')">Cancel</button>
-      <button class="btn" onclick="confirmAction('${id}', 'qualify')">Qualify</button>`;
-  } else if (action === 'notrelevant') {
-    actionButtons = `<button class="btn secondary" onclick="closeModal('modalLead')">Cancel</button>
-      <button class="btn danger" onclick="confirmAction('${id}', 'notrelevant')">Mark Not Relevant</button>`;
-  } else if (action === 'lost') {
-    actionButtons = `<button class="btn secondary" onclick="closeModal('modalLead')">Cancel</button>
-      <button class="btn danger" onclick="confirmAction('${id}', 'lost')">Mark Lost</button>`;
-  } else {
-    // View-only mode
-    const statusActions = lead.status === 'Submitted' ? 
-      `<button class="btn" onclick="closeModal('modalLead'); showLeadDetails('${id}', 'qualify')" style="margin-right:8px;">Qualify</button>
-       <button class="btn secondary" onclick="closeModal('modalLead'); showLeadDetails('${id}', 'notrelevant')">Not Relevant</button>` :
-      lead.status === 'Qualified' ?
-      `<button class="btn success" onclick="openWonModal('${id}'); closeModal('modalLead');" style="margin-right:8px;">Mark Won</button>
-       <button class="btn secondary" onclick="closeModal('modalLead'); showLeadDetails('${id}', 'lost')">Mark Lost</button>` :
-      '';
-    actionButtons = `<button class="btn secondary" onclick="closeModal('modalLead')">Close</button>${statusActions}`;
-  }
-  
-  const warningBox = action === 'view' ? '' : 
-    `<div style="background:var(--amber-light);border:1px solid var(--amber);padding:12px;border-radius:8px;font-size:12px;margin-bottom:16px;color:var(--amber);">
-      <strong>Action:</strong> ${actionLabel} — ${action === 'qualify' ? 'This will add it to the active pipeline.' : action === 'notrelevant' ? 'This cannot be undone.' : 'This cannot be undone.'}
-    </div>`;
-  
-  const html = `
-    <h2>${lead.company}</h2>
-    <div style="background:var(--gray-50);padding:14px;border-radius:8px;margin-bottom:16px;font-size:13px;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div>
-          <div style="color:var(--gray-600);font-size:11px;font-weight:600;margin-bottom:3px;">CONTACT PERSON</div>
-          <div style="font-weight:500;">${lead.contact || '—'}</div>
-        </div>
-        <div>
-          <div style="color:var(--gray-600);font-size:11px;font-weight:600;margin-bottom:3px;">REFERRER</div>
-          <div style="font-weight:500;">${lead.referrerName}${lead.referrerRole === 'sales' ? ' (sales)' : ''}</div>
-        </div>
-        <div>
-          <div style="color:var(--gray-600);font-size:11px;font-weight:600;margin-bottom:3px;">TYPE</div>
-          <div style="font-weight:500;">${lead.type}</div>
-        </div>
-        <div>
-          <div style="color:var(--gray-600);font-size:11px;font-weight:600;margin-bottom:3px;">VALUE</div>
-          <div style="font-weight:500;color:var(--brand);">${finalValue}</div>
-        </div>
-        <div style="grid-column:1/-1;">
-          <div style="color:var(--gray-600);font-size:11px;font-weight:600;margin-bottom:3px;">STATUS</div>
-          <div style="font-weight:500;"><span class="badge ${badgeClass(lead.status)}">${lead.status}</span></div>
-        </div>
-      </div>
-      <div style="margin-top:12px;">
-        <div style="color:var(--gray-600);font-size:11px;font-weight:600;margin-bottom:3px;">CONTACT INFO</div>
-        <div style="font-weight:500;">${contactInfo}</div>
-      </div>
-    </div>
-    
-    <div style="margin-bottom:16px;">
-      <div style="color:var(--gray-600);font-size:11px;font-weight:600;margin-bottom:6px;">DESCRIPTION</div>
-      <div style="background:#f5f5f5;padding:12px;border-radius:6px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-wrap:break-word;">${description}</div>
-    </div>
-    
-    ${warningBox}
-    
-    <div class="actions" style="justify-content:flex-start;gap:8px;display:flex;flex-wrap:wrap;">
-      ${actionButtons}
-    </div>
-  `;
-  
-  document.getElementById('modalLeadContent').innerHTML = html;
-  document.getElementById('modalLead').classList.add('show');
-}
-
-function confirmAction(id, action) {
-  if (action === 'qualify') {
-    qualifyLead(id);
-  } else if (action === 'notrelevant') {
-    notRelevant(id);
-  } else if (action === 'lost') {
-    markLost(id);
-  }
-  closeModal('modalLead');
-}
-
-function closeModal(modalId) {
-  document.getElementById(modalId).classList.remove('show');
-}
 document.getElementById('won_value').addEventListener('input', updateWonBreakdown);
+document.getElementById('won_marginPct').addEventListener('input', updateWonBreakdown);
 
 function calcPayout(valueLakh, alreadyPaid, isSales){
   if(isSales){
@@ -705,6 +725,30 @@ function calcPayout(valueLakh, alreadyPaid, isSales){
   };
 }
 
+/* ---- Project margin bonus engine ----
+   Rate scales with the margin band the deal falls into. Below the floor,
+   rate is zero — those quotes should have been escalated before submission. */
+function marginRate(pct){
+  if(pct < config.mb_floorPct) return 0;
+  if(pct < config.mb_targetPct) return config.mb_rateBelowTarget;
+  if(pct < config.mb_strongPct) return config.mb_rateTarget;
+  if(pct < config.mb_excellentPct) return config.mb_rateStrong;
+  return config.mb_rateExcellent;
+}
+function marginBand(pct){
+  if(pct < config.mb_floorPct) return 'Below floor — escalation required';
+  if(pct < config.mb_targetPct) return 'Below target';
+  if(pct < config.mb_strongPct) return 'Target met';
+  if(pct < config.mb_excellentPct) return 'Strong';
+  return 'Excellent';
+}
+function marginBonusTarget(valueLakh, marginPct){
+  const gpRupees = valueLakh * 100000 * (marginPct/100);
+  const rate = marginRate(marginPct);
+  const raw = gpRupees * (rate/100);
+  return Math.min(raw, config.mb_perProjectCap);
+}
+
 function updateWonBreakdown(){
   const lead = leads.find(l=>l.id===wonLeadId);
   if(!lead) return;
@@ -712,7 +756,18 @@ function updateWonBreakdown(){
   const alreadyPaid = (lead.tier1Paid?config.tier1:0) + (lead.tier2Paid?config.tier2:0);
   const isSales = lead.referrerRole === 'sales';
   const result = calcPayout(valueLakh, alreadyPaid, isSales);
-  document.getElementById('won_breakdown').innerHTML = `<div class="payout-breakdown">${result.breakdown}</div>`;
+  document.getElementById('won_breakdown').innerHTML = `<div class="payout-breakdown"><b>Referral incentive</b><br>${result.breakdown}</div>`;
+
+  if(lead.isProject){
+    const marginPct = Number(document.getElementById('won_marginPct').value) || 0;
+    const target = marginBonusTarget(valueLakh, marginPct);
+    const stage1 = target * (config.mb_stage1Weight/100);
+    document.getElementById('won_marginBreakdown').innerHTML = `
+      Margin band: <b>${marginBand(marginPct)}</b> (rate ${marginRate(marginPct)}% of GP)<br>
+      Full project bonus target: ₹${target.toLocaleString('en-IN')} (cap ₹${config.mb_perProjectCap.toLocaleString('en-IN')})<br>
+      <b>Stage 1 (PO stage, ${config.mb_stage1Weight}%) due to ${lead.salesOwner}: ₹${Math.round(stage1).toLocaleString('en-IN')}</b><br>
+      Remainder trued up at project completion based on actual achieved margin.`;
+  }
 }
 
 async function confirmWon(){
@@ -723,13 +778,76 @@ async function confirmWon(){
   const isSales = lead.referrerRole === 'sales';
   const result = calcPayout(valueLakh, alreadyPaid, isSales);
 
-  await db.collection('dqap_leads').doc(wonLeadId).update({
+  const update = {
     status:'Won', finalValueLakh: valueLakh, wonAt: firebase.firestore.FieldValue.serverTimestamp(),
     tier3Paid: true, tier3Amount: result.tier3, megaBonus: result.mega,
     totalPayout: result.total, payoutStatus:'Pending'
-  });
+  };
+
+  if(lead.isProject){
+    const marginPct = Number(document.getElementById('won_marginPct').value);
+    if(!marginPct){ showToast('Enter the quoted margin % for this project.'); return; }
+    const target = marginBonusTarget(valueLakh, marginPct);
+    const stage1 = target * (config.mb_stage1Weight/100);
+    update.quotedMarginPct = marginPct;
+    update.marginBonusTargetAtPO = target;
+    update.marginBonusStage1 = stage1;
+    update.marginBonusStage1Status = 'Pending';
+    update.marginBonusStage2 = null;
+    update.marginBonusStage2Status = null;
+    update.projectStage = 'PO Received';
+  }
+
+  await db.collection('dqap_leads').doc(wonLeadId).update(update);
   closeModal('modalWon');
-  showToast('Deal marked as won. Incentive calculated.');
+  showToast('Deal marked as won. Incentive calculated.' + (lead.isProject ? ' Margin bonus stage 1 ready.' : ''));
+}
+
+/* ---- Project completion — true up margin bonus ---- */
+function openCompleteModal(id){
+  completeLeadId = id;
+  document.getElementById('complete_marginPct').value='';
+  document.getElementById('complete_breakdown').innerHTML='';
+  document.getElementById('modalComplete').classList.add('show');
+}
+document.getElementById('complete_marginPct').addEventListener('input', updateCompleteBreakdown);
+
+function updateCompleteBreakdown(){
+  const lead = leads.find(l=>l.id===completeLeadId);
+  if(!lead) return;
+  const actualPct = Number(document.getElementById('complete_marginPct').value) || 0;
+  const target = marginBonusTarget(lead.finalValueLakh, actualPct);
+  const stage1Paid = lead.marginBonusStage1 || 0;
+  const stage2 = Math.max(target - stage1Paid, 0);
+  document.getElementById('complete_breakdown').innerHTML = `
+    Achieved margin band: <b>${marginBand(actualPct)}</b> (rate ${marginRate(actualPct)}% of GP)<br>
+    Total bonus target at actual margin: ₹${target.toLocaleString('en-IN')}<br>
+    Already paid at PO stage: ₹${Math.round(stage1Paid).toLocaleString('en-IN')}<br>
+    <b>Stage 2 due to ${lead.salesOwner}: ₹${Math.round(stage2).toLocaleString('en-IN')}</b>
+    ${target < stage1Paid ? '<br><span style="color:var(--red)">Actual margin came in below quote — stage 1 already paid stands, no further amount due (no clawback).</span>' : ''}`;
+}
+
+async function confirmComplete(){
+  const actualPct = Number(document.getElementById('complete_marginPct').value);
+  if(!actualPct){ showToast('Enter the actual achieved margin %.'); return; }
+  const lead = leads.find(l=>l.id===completeLeadId);
+  const target = marginBonusTarget(lead.finalValueLakh, actualPct);
+  const stage1Paid = lead.marginBonusStage1 || 0;
+  const stage2 = Math.max(target - stage1Paid, 0);
+
+  await db.collection('dqap_leads').doc(completeLeadId).update({
+    projectStage: 'Completed', actualMarginPct: actualPct,
+    marginBonusTargetFinal: target, marginBonusStage2: stage2,
+    marginBonusStage2Status: 'Pending', completedAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  closeModal('modalComplete');
+  showToast('Project completed. Margin bonus trued up.');
+}
+
+async function markMarginStagePaid(id, stage){
+  const field = stage===1 ? 'marginBonusStage1Status' : 'marginBonusStage2Status';
+  await db.collection('dqap_leads').doc(id).update({[field]:'Paid'});
+  showToast(`Stage ${stage} margin bonus marked paid.`);
 }
 
 async function markPaid(id){
@@ -754,12 +872,61 @@ function renderDashboard(){
   document.getElementById('statPending').textContent = '₹'+pending.toLocaleString('en-IN');
   document.getElementById('statPaid').textContent = '₹'+paid.toLocaleString('en-IN');
 
+  renderMarginBonusByOwner();
+
   const recent = leads.slice(0,8);
   document.getElementById('recentActivity').innerHTML = recent.length ? recent.map(l=>`
     <div class="team-row">
       <span class="name">${l.company} <span class="muted">— ${l.referrerName}</span></span>
       <span class="badge ${badgeClass(l.status)}">${l.status}</span>
     </div>`).join('') : `<p class="muted">No leads yet — be the first to submit one.</p>`;
+}
+
+function marginBonusSoFar(l){
+  if(!l.isProject) return 0;
+  let amt = (l.marginBonusStage1 || 0);
+  if(l.marginBonusStage2) amt += l.marginBonusStage2;
+  return amt;
+}
+
+function renderMarginBonusByOwner(){
+  const el = document.getElementById('marginBonusByOwner');
+  if(!el) return;
+  const projectLeads = leads.filter(l=>l.isProject && l.status==='Won');
+  if(!projectLeads.length){ el.innerHTML = `<p class="muted">No Project-tagged deals won yet.</p>`; return; }
+
+  const byOwner = {};
+  let annualGP = 0;
+  projectLeads.forEach(l=>{
+    const owner = l.salesOwner || 'Unassigned';
+    if(!byOwner[owner]) byOwner[owner] = {pending:0, paid:0, count:0};
+    const stage1Amt = l.marginBonusStage1 || 0;
+    const stage2Amt = l.marginBonusStage2 || 0;
+    byOwner[owner].count += 1;
+    byOwner[owner][l.marginBonusStage1Status==='Paid' ? 'paid' : 'pending'] += stage1Amt;
+    if(l.marginBonusStage2 != null){
+      byOwner[owner][l.marginBonusStage2Status==='Paid' ? 'paid' : 'pending'] += stage2Amt;
+    }
+    const marginForGP = l.actualMarginPct || l.quotedMarginPct || 0;
+    annualGP += (l.finalValueLakh||0) * 100000 * (marginForGP/100);
+  });
+
+  const totalPaidOrPending = Object.values(byOwner).reduce((s,o)=>s+o.pending+o.paid,0);
+  const poolPctUsed = annualGP > 0 ? (totalPaidOrPending / annualGP * 100) : 0;
+
+  el.innerHTML = Object.entries(byOwner).map(([owner,o])=>`
+    <div class="team-row">
+      <span class="name">${owner} <span class="muted">(${o.count} project${o.count!==1?'s':''})</span></span>
+      <span class="badge b-pending">Pending ₹${Math.round(o.pending).toLocaleString('en-IN')}</span>
+      <span class="badge b-paid">Paid ₹${Math.round(o.paid).toLocaleString('en-IN')}</span>
+    </div>`).join('');
+
+  const statusEl = document.getElementById('marginPoolStatus');
+  if(statusEl){
+    const overGuideline = poolPctUsed > config.mb_annualPoolCapPct;
+    statusEl.innerHTML = `Margin bonus paid/accrued so far this year: <b>${poolPctUsed.toFixed(2)}%</b> of project gross profit
+      (guideline: ${config.mb_annualPoolCapPct}%). ${overGuideline ? '<span style="color:var(--red)">Above guideline — review before approving further bonuses.</span>' : '<span style="color:var(--green)">Within guideline.</span>'}`;
+  }
 }
 
 function leadPayoutSoFar(l){
@@ -817,33 +984,62 @@ function renderPipeline(){
   if(!filtered.length){ el.innerHTML = `<div class="card empty">No leads in this view.</div>`; return; }
 
   el.innerHTML = `<div class="table-wrap"><div class="card"><table>
-    <tr><th>Company</th><th>Referrer</th><th>Type</th><th>Value</th><th>Status</th><th>Payout</th><th>Actions</th></tr>
+    <tr><th>Company</th><th>Referrer</th><th>Type</th><th>Value</th><th>Status</th><th>Project / margin</th><th>Payout</th><th>Actions</th></tr>
     ${filtered.map(l=>`
-      <tr style="cursor:pointer;" onclick="showLeadDetails('${l.id}', 'view')">
+      <tr>
         <td><b>${l.company}</b><br><span class="muted">${l.description.slice(0,60)}${l.description.length>60?'…':''}</span></td>
         <td>${l.referrerName}${l.referrerRole==='sales'?' <span class="muted">(sales)</span>':''}</td>
         <td>${l.type}</td>
         <td>${l.finalValueLakh ? '₹'+l.finalValueLakh+'L' : (l.estValueLakh ? '~₹'+l.estValueLakh+'L' : '—')}</td>
         <td><span class="badge ${badgeClass(l.status)}">${l.status}</span></td>
+        <td>${projectCellHtml(l)}</td>
         <td>₹${leadPayoutSoFar(l).toLocaleString('en-IN')}
           ${l.status==='Won' ? `<br><span class="badge ${l.payoutStatus==='Paid'?'b-paid':'b-pending'}">${l.payoutStatus}</span>` : ''}
         </td>
-        <td onclick="event.stopPropagation()">${pipelineActions(l)}</td>
+        <td>${pipelineActions(l)}</td>
       </tr>`).join('')}
   </table></div></div>`;
 }
 
+function projectCellHtml(l){
+  if(!l.isProject) return `<span class="muted">—</span>`;
+  let html = `<span class="badge b-qualified">Project</span> <span class="muted">${l.salesOwner||''}</span>`;
+  if(l.quotedMarginPct){
+    html += `<br><span class="muted">Quoted ${l.quotedMarginPct}%</span>`;
+  }
+  if(l.projectStage){
+    html += `<br><span class="badge ${l.projectStage==='Completed'?'b-won':'b-pending'}">${l.projectStage}</span>`;
+  }
+  if(l.actualMarginPct){
+    html += `<br><span class="muted">Actual ${l.actualMarginPct}%</span>`;
+  }
+  return html;
+}
+
 function pipelineActions(l){
   if(l.status==='Submitted'){
-    return `<button class="btn small" onclick="showLeadDetails('${l.id}', 'qualify')">Qualify</button>
-      <button class="btn secondary small" onclick="showLeadDetails('${l.id}', 'notrelevant')">Not relevant</button>`;
+    return `<button class="btn small" onclick="openQualifyModal('${l.id}')">Qualify</button>
+      <button class="btn secondary small" onclick="notRelevant('${l.id}')">Not relevant</button>`;
   }
   if(l.status==='Qualified'){
     return `<button class="btn success small" onclick="openWonModal('${l.id}')">Mark won</button>
-      <button class="btn secondary small" onclick="showLeadDetails('${l.id}', 'lost')">Mark lost</button>`;
+      <button class="btn secondary small" onclick="markLost('${l.id}')">Mark lost</button>`;
   }
-  if(l.status==='Won' && l.payoutStatus==='Pending' && currentUser.role==='admin'){
-    return `<button class="btn secondary small" onclick="markPaid('${l.id}')">Mark paid</button>`;
+  if(l.status==='Won'){
+    let actions = '';
+    if(l.payoutStatus==='Pending' && currentUser.role==='admin'){
+      actions += `<button class="btn secondary small" onclick="markPaid('${l.id}')">Mark referral paid</button>`;
+    }
+    if(l.isProject && l.projectStage==='PO Received'){
+      actions += `<button class="btn small" style="margin-top:4px;" onclick="openCompleteModal('${l.id}')">Complete project</button>`;
+    }
+    if(l.isProject && l.marginBonusStage1Status==='Pending' && currentUser.role==='admin'){
+      actions += `<button class="btn secondary small" style="margin-top:4px;" onclick="markMarginStagePaid('${l.id}',1)">Mark margin stage 1 paid</button>`;
+    }
+    if(l.isProject && l.marginBonusStage2Status==='Pending' && currentUser.role==='admin'){
+      actions += `<button class="btn secondary small" style="margin-top:4px;" onclick="markMarginStagePaid('${l.id}',2)">Mark margin stage 2 paid</button>`;
+    }
+    return actions || `<span class="muted">—</span>`;
   }
   return `<span class="muted">—</span>`;
 }
@@ -900,6 +1096,17 @@ function renderSettings(){
   document.getElementById('cfg_cap').value = config.tier3Cap;
   document.getElementById('cfg_megaThresh').value = config.megaThreshold;
   document.getElementById('cfg_megaBonus').value = config.megaBonus;
+  document.getElementById('mb_floorPct').value = config.mb_floorPct;
+  document.getElementById('mb_targetPct').value = config.mb_targetPct;
+  document.getElementById('mb_strongPct').value = config.mb_strongPct;
+  document.getElementById('mb_excellentPct').value = config.mb_excellentPct;
+  document.getElementById('mb_rateBelowTarget').value = config.mb_rateBelowTarget;
+  document.getElementById('mb_rateTarget').value = config.mb_rateTarget;
+  document.getElementById('mb_rateStrong').value = config.mb_rateStrong;
+  document.getElementById('mb_rateExcellent').value = config.mb_rateExcellent;
+  document.getElementById('mb_perProjectCap').value = config.mb_perProjectCap;
+  document.getElementById('mb_stage1Weight').value = config.mb_stage1Weight;
+  document.getElementById('mb_annualPoolCapPct').value = config.mb_annualPoolCapPct;
   renderTeamList();
 }
 
@@ -907,13 +1114,19 @@ function renderSettings(){
    EXPORT CSV
    ============================================================ */
 function exportCSV(){
-  const headers = ['Company','Referrer','Role','Type','Status','Est Value (L)','Final Value (L)','Tier1','Tier2','Tier3+Mega','Total Payout','Payout Status'];
+  const headers = ['Company','Referrer','Role','Type','Status','Est Value (L)','Final Value (L)',
+    'Tier1','Tier2','Tier3+Mega','Referral Total','Referral Payout Status',
+    'Is Project','Sales Owner','Quoted Margin %','Actual Margin %','Project Stage',
+    'Margin Stage1','Margin Stage1 Status','Margin Stage2','Margin Stage2 Status'];
   const rows = leads.map(l=>[
     l.company, l.referrerName, l.referrerRole, l.type, l.status,
     l.estValueLakh||'', l.finalValueLakh||'',
     l.tier1Paid?config.tier1:0, l.tier2Paid?config.tier2:0,
     l.tier3Paid?((l.tier3Amount||0)+(l.megaBonus||0)):0,
-    leadPayoutSoFar(l), l.payoutStatus
+    leadPayoutSoFar(l), l.payoutStatus,
+    l.isProject?'Yes':'No', l.salesOwner||'', l.quotedMarginPct||'', l.actualMarginPct||'', l.projectStage||'',
+    l.marginBonusStage1?Math.round(l.marginBonusStage1):'', l.marginBonusStage1Status||'',
+    l.marginBonusStage2?Math.round(l.marginBonusStage2):'', l.marginBonusStage2Status||''
   ]);
   const csv = [headers, ...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], {type:'text/csv'});
