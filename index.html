@@ -129,7 +129,7 @@
     align-items:center;justify-content:center;z-index:150;padding:20px;
   }
   .modal-bg.show{display:flex;}
-  .modal{background:#fff;border-radius:var(--radius);padding:22px;max-width:440px;width:100%;max-height:88vh;overflow-y:auto;}
+  .modal{background:#fff;border-radius:var(--radius);padding:22px;max-width:650px;width:100%;max-height:88vh;overflow-y:auto;}
   .modal h2{margin-bottom:14px;}
   .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}
 
@@ -555,7 +555,6 @@ async function submitLead(){
 }
 
 async function qualifyLead(id){
-  if(!confirm('Mark this lead as qualified? This adds it to the active pipeline.')) return;
   await db.collection('dqap_leads').doc(id).update({
     status:'Qualified', qualifiedBy: currentUser.name,
     qualifiedAt: firebase.firestore.FieldValue.serverTimestamp(), tier2Paid:true
@@ -564,13 +563,13 @@ async function qualifyLead(id){
 }
 
 async function notRelevant(id){
-  if(!confirm('Mark this lead as not relevant?')) return;
   await db.collection('dqap_leads').doc(id).update({status:'Not Relevant'});
+  showToast('Lead marked as not relevant.');
 }
 
 async function markLost(id){
-  if(!confirm('Mark this deal as lost?')) return;
   await db.collection('dqap_leads').doc(id).update({status:'Lost'});
+  showToast('Deal marked as lost.');
 }
 
 let wonLeadId = null;
@@ -579,6 +578,82 @@ function openWonModal(id){
   document.getElementById('won_value').value='';
   document.getElementById('won_breakdown').innerHTML='';
   document.getElementById('modalWon').classList.add('show');
+}
+
+// Show lead details in modal before taking action
+function showLeadDetails(id, action) {
+  const lead = leads.find(l => l.id === id);
+  if (!lead) return;
+  
+  const actionLabel = action === 'qualify' ? 'Qualify' : 
+                      action === 'notrelevant' ? 'Mark Not Relevant' : action;
+  
+  const contactInfo = lead.contactInfo ? `📧 ${lead.contactInfo}` : '(No contact info)';
+  const description = lead.description ? lead.description.replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'No description';
+  const finalValue = lead.finalValueLakh ? `₹${lead.finalValueLakh}L` : 
+                     lead.estValueLakh ? `~₹${lead.estValueLakh}L (est.)` : 'Not specified';
+  
+  const html = `
+    <h2>${lead.company}</h2>
+    <div style="background:var(--gray-50);padding:14px;border-radius:8px;margin-bottom:16px;font-size:13px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div style="color:var(--gray-600);font-size:11px;font-weight:600;margin-bottom:3px;">CONTACT PERSON</div>
+          <div style="font-weight:500;">${lead.contact || '—'}</div>
+        </div>
+        <div>
+          <div style="color:var(--gray-600);font-size:11px;font-weight:600;margin-bottom:3px;">REFERRER</div>
+          <div style="font-weight:500;">${lead.referrerName}${lead.referrerRole === 'sales' ? ' (sales)' : ''}</div>
+        </div>
+        <div>
+          <div style="color:var(--gray-600);font-size:11px;font-weight:600;margin-bottom:3px;">TYPE</div>
+          <div style="font-weight:500;">${lead.type}</div>
+        </div>
+        <div>
+          <div style="color:var(--gray-600);font-size:11px;font-weight:600;margin-bottom:3px;">VALUE</div>
+          <div style="font-weight:500;color:var(--brand);">${finalValue}</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <div style="color:var(--gray-600);font-size:11px;font-weight:600;margin-bottom:3px;">CONTACT INFO</div>
+        <div style="font-weight:500;">${contactInfo}</div>
+      </div>
+    </div>
+    
+    <div style="margin-bottom:16px;">
+      <div style="color:var(--gray-600);font-size:11px;font-weight:600;margin-bottom:6px;">DESCRIPTION</div>
+      <div style="background:#f5f5f5;padding:12px;border-radius:6px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-wrap:break-word;">${description}</div>
+    </div>
+    
+    <div style="background:var(--amber-light);border:1px solid var(--amber);padding:12px;border-radius:8px;font-size:12px;margin-bottom:16px;color:var(--amber);">
+      <strong>Action:</strong> ${actionLabel} — ${action === 'qualify' ? 'This will add it to the active pipeline.' : 'This cannot be undone.'}
+    </div>
+    
+    <div class="actions">
+      <button class="btn secondary" onclick="closeModal('modalLead')">Cancel</button>
+      <button class="btn ${action === 'qualify' ? '' : 'danger'}" onclick="confirmAction('${id}', '${action}')">
+        ${actionLabel}
+      </button>
+    </div>
+  `;
+  
+  document.getElementById('modalLeadContent').innerHTML = html;
+  document.getElementById('modalLead').classList.add('show');
+}
+
+function confirmAction(id, action) {
+  if (action === 'qualify') {
+    qualifyLead(id);
+  } else if (action === 'notrelevant') {
+    notRelevant(id);
+  } else if (action === 'lost') {
+    markLost(id);
+  }
+  closeModal('modalLead');
+}
+
+function closeModal(modalId) {
+  document.getElementById(modalId).classList.remove('show');
 }
 document.getElementById('won_value').addEventListener('input', updateWonBreakdown);
 
@@ -732,12 +807,12 @@ function renderPipeline(){
 
 function pipelineActions(l){
   if(l.status==='Submitted'){
-    return `<button class="btn small" onclick="qualifyLead('${l.id}')">Qualify</button>
-      <button class="btn secondary small" onclick="notRelevant('${l.id}')">Not relevant</button>`;
+    return `<button class="btn small" onclick="showLeadDetails('${l.id}', 'qualify')">Qualify</button>
+      <button class="btn secondary small" onclick="showLeadDetails('${l.id}', 'notrelevant')">Not relevant</button>`;
   }
   if(l.status==='Qualified'){
     return `<button class="btn success small" onclick="openWonModal('${l.id}')">Mark won</button>
-      <button class="btn secondary small" onclick="markLost('${l.id}')">Mark lost</button>`;
+      <button class="btn secondary small" onclick="showLeadDetails('${l.id}', 'lost')">Mark lost</button>`;
   }
   if(l.status==='Won' && l.payoutStatus==='Pending' && currentUser.role==='admin'){
     return `<button class="btn secondary small" onclick="markPaid('${l.id}')">Mark paid</button>`;
