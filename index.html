@@ -586,12 +586,41 @@ function showLeadDetails(id, action) {
   if (!lead) return;
   
   const actionLabel = action === 'qualify' ? 'Qualify' : 
-                      action === 'notrelevant' ? 'Mark Not Relevant' : action;
+                      action === 'notrelevant' ? 'Mark Not Relevant' : 
+                      action === 'lost' ? 'Mark Lost' : 'View Details';
   
   const contactInfo = lead.contactInfo ? `📧 ${lead.contactInfo}` : '(No contact info)';
   const description = lead.description ? lead.description.replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'No description';
   const finalValue = lead.finalValueLakh ? `₹${lead.finalValueLakh}L` : 
                      lead.estValueLakh ? `~₹${lead.estValueLakh}L (est.)` : 'Not specified';
+  
+  // Build action buttons based on status and action type
+  let actionButtons = '';
+  if (action === 'qualify') {
+    actionButtons = `<button class="btn secondary" onclick="closeModal('modalLead')">Cancel</button>
+      <button class="btn" onclick="confirmAction('${id}', 'qualify')">Qualify</button>`;
+  } else if (action === 'notrelevant') {
+    actionButtons = `<button class="btn secondary" onclick="closeModal('modalLead')">Cancel</button>
+      <button class="btn danger" onclick="confirmAction('${id}', 'notrelevant')">Mark Not Relevant</button>`;
+  } else if (action === 'lost') {
+    actionButtons = `<button class="btn secondary" onclick="closeModal('modalLead')">Cancel</button>
+      <button class="btn danger" onclick="confirmAction('${id}', 'lost')">Mark Lost</button>`;
+  } else {
+    // View-only mode
+    const statusActions = lead.status === 'Submitted' ? 
+      `<button class="btn" onclick="closeModal('modalLead'); showLeadDetails('${id}', 'qualify')" style="margin-right:8px;">Qualify</button>
+       <button class="btn secondary" onclick="closeModal('modalLead'); showLeadDetails('${id}', 'notrelevant')">Not Relevant</button>` :
+      lead.status === 'Qualified' ?
+      `<button class="btn success" onclick="openWonModal('${id}'); closeModal('modalLead');" style="margin-right:8px;">Mark Won</button>
+       <button class="btn secondary" onclick="closeModal('modalLead'); showLeadDetails('${id}', 'lost')">Mark Lost</button>` :
+      '';
+    actionButtons = `<button class="btn secondary" onclick="closeModal('modalLead')">Close</button>${statusActions}`;
+  }
+  
+  const warningBox = action === 'view' ? '' : 
+    `<div style="background:var(--amber-light);border:1px solid var(--amber);padding:12px;border-radius:8px;font-size:12px;margin-bottom:16px;color:var(--amber);">
+      <strong>Action:</strong> ${actionLabel} — ${action === 'qualify' ? 'This will add it to the active pipeline.' : action === 'notrelevant' ? 'This cannot be undone.' : 'This cannot be undone.'}
+    </div>`;
   
   const html = `
     <h2>${lead.company}</h2>
@@ -613,6 +642,10 @@ function showLeadDetails(id, action) {
           <div style="color:var(--gray-600);font-size:11px;font-weight:600;margin-bottom:3px;">VALUE</div>
           <div style="font-weight:500;color:var(--brand);">${finalValue}</div>
         </div>
+        <div style="grid-column:1/-1;">
+          <div style="color:var(--gray-600);font-size:11px;font-weight:600;margin-bottom:3px;">STATUS</div>
+          <div style="font-weight:500;"><span class="badge ${badgeClass(lead.status)}">${lead.status}</span></div>
+        </div>
       </div>
       <div style="margin-top:12px;">
         <div style="color:var(--gray-600);font-size:11px;font-weight:600;margin-bottom:3px;">CONTACT INFO</div>
@@ -625,15 +658,10 @@ function showLeadDetails(id, action) {
       <div style="background:#f5f5f5;padding:12px;border-radius:6px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-wrap:break-word;">${description}</div>
     </div>
     
-    <div style="background:var(--amber-light);border:1px solid var(--amber);padding:12px;border-radius:8px;font-size:12px;margin-bottom:16px;color:var(--amber);">
-      <strong>Action:</strong> ${actionLabel} — ${action === 'qualify' ? 'This will add it to the active pipeline.' : 'This cannot be undone.'}
-    </div>
+    ${warningBox}
     
-    <div class="actions">
-      <button class="btn secondary" onclick="closeModal('modalLead')">Cancel</button>
-      <button class="btn ${action === 'qualify' ? '' : 'danger'}" onclick="confirmAction('${id}', '${action}')">
-        ${actionLabel}
-      </button>
+    <div class="actions" style="justify-content:flex-start;gap:8px;display:flex;flex-wrap:wrap;">
+      ${actionButtons}
     </div>
   `;
   
@@ -791,7 +819,7 @@ function renderPipeline(){
   el.innerHTML = `<div class="table-wrap"><div class="card"><table>
     <tr><th>Company</th><th>Referrer</th><th>Type</th><th>Value</th><th>Status</th><th>Payout</th><th>Actions</th></tr>
     ${filtered.map(l=>`
-      <tr>
+      <tr style="cursor:pointer;" onclick="showLeadDetails('${l.id}', 'view')">
         <td><b>${l.company}</b><br><span class="muted">${l.description.slice(0,60)}${l.description.length>60?'…':''}</span></td>
         <td>${l.referrerName}${l.referrerRole==='sales'?' <span class="muted">(sales)</span>':''}</td>
         <td>${l.type}</td>
@@ -800,7 +828,7 @@ function renderPipeline(){
         <td>₹${leadPayoutSoFar(l).toLocaleString('en-IN')}
           ${l.status==='Won' ? `<br><span class="badge ${l.payoutStatus==='Paid'?'b-paid':'b-pending'}">${l.payoutStatus}</span>` : ''}
         </td>
-        <td>${pipelineActions(l)}</td>
+        <td onclick="event.stopPropagation()">${pipelineActions(l)}</td>
       </tr>`).join('')}
   </table></div></div>`;
 }
